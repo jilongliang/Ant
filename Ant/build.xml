@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--官方网站:http://ant.apache.org/-->
+<project name="MyAntProject" basedir="." default="package">
+	<!--用ant连接数据库创建表-->
+	<!--
+		要是报错请，右击build.xml==>>Run as =>>Ant build 找到Classpath==>>Add External JARs
+		添加报错所需要的jar即可...
+		例如：BUILD FAILED Class Not Found:(这句是在你没写检测才会输出.)
+			 JDBC driver com.mysql.jdbc.Driver could not be loaded
+	-->
+	<property name="driver" value="com.mysql.jdbc.Driver"/>
+	<property name="url" value="jdbc:mysql://localhost:3306/test?useUnicode=true"/>
+	<property name="user" value="root"/>
+	<property name="password" value="root"/>
+	<!--检查Classpath是否有安装mysql-connector-java-5.1.7-bin.jar(一般程序员知道classpath加载什么jar才会写上提醒)-->
+	<available classname="com.mysql.jdbc.Driver" property="mysql.present"/>
+	<!--<available file="mysql-connector-java-5.1.7-bin.jar" property="mysqljar.present"/> -->
+	<fail unless="mysql.present" message="mysql-connector-java-5.1.7-bin.jar没安装,请你在run 的时候添加.."/>
+	<!-- - - - - - - - - - - - - - - - - -   target: 创建表   - - - - - - - - - - - - - - - - - -->
+	<target name="createTable">
+		<!--person表-->
+		<sql driver="${driver}" password="${password}" url="${url}" userid="${user}">
+			create table ant_person(
+				id int primary key,
+				name varchar(20) not null,
+				age int 
+			);
+			<!--
+			insert into ant_person values(1,'jilong',23); 
+			为了临时表有数据就放在这里.要是比较专业的一般在初始化数据插入数据
+			-->
+			create table ant_temp select * from ant_person;<!--创建临时表-->
+		</sql>
+	</target>
+	<!-- - - - - - - - - - - - - - - - - -  target: 删除表 - - - - - - - - - - - - - - - -->
+    <target name="dropTable">
+    	<sql driver="${driver}" password="${password}" url="${url}" userid="${user}">
+    		drop table ant_person;
+	       	drop table ant_temp;
+    	</sql>
+    </target>
+	<!-- - - - - - - - - - - - - - - - - -target: 初始化数据.  - - - - - - - - - - - - - - - - - -->                            
+    <target name="InitData">
+            <sql driver="${driver}" password="${password}" url="${url}" userid="${user}">
+            	insert into ant_person values(2,'jilong',23);
+            </sql>
+    </target>
+	<!-- - - - - - - - - - - - - - - - target: 同时执行创建表和插入数据.- - - -  - - - - - - - - - - -->
+    <target name="create_init" depends="createTable,InitData"/>     
+	<!--=======================================================================================-->
+	<!--定义文件目录的name和value-->
+	<property name="compile" value="compile" />
+	<property name="dist" value="dist" />
+	<property name="src" value="src" />
+	<target name="init" />
+	<!--定义两个文件的根目录-->
+	<target name="preprocess" depends="init">
+		<mkdir dir="${compile}" />
+		<mkdir dir="${dist}" />
+	</target>
+	<target name="compile" depends="init,preprocess" />
+	<target name="package" depends="compile" />
+
+	<!--编译java类成.class文件-->
+	<target name="myCompile" depends="preprocess">
+		<javac srcdir="src" destdir="${compile}" fork="true" memorymaximumsize="4m"/>
+	</target>
+	<!-- 创建一个.jar夹-->
+	<target name="dist" depends="myCompile">
+		<!--设置时间格式的有${TSTAMP}/${TODAY}-->
+		<tstamp/>
+		<jar destfile="${dist}/package1-${TODAY}.jar" basedir="${compile}">
+			<manifest>
+				<!--user.name是操作系统的用户名-->
+				<attribute name="Built-By" value="${user.name}" />
+				<attribute name="Main-Class" value="com.test.Test1" />
+			</manifest>
+		</jar>
+	</target>
+	<!--删除jar-->
+	<target name="deleteFile">
+		<delete file="${dist}/package1-${TSTAMP}.jar"/>
+	</target>
+	<!--拷貝文件，一般在打包项目的用来备份项目,或者把打包的jar拷贝到服务器部署目录下，
+	    那就可以不用手工拷贝夹部署demo..-->
+	<target name="copyFile">
+		<copy file="src/com/test/Test1.java" tofile="D:/TestCopy.java" />
+		<copy file="src/com/test/Test1.java" todir="D:\" />
+	</target>
+	<!--剪切/移動文件-->
+	<target name="moveFile">
+		<move file="src/com/test/Test1.java" todir="D:" />
+	</target>
+	<!--打包成.zip夹包-->
+	<target name="compress" depends="compile">
+		<zip destfile="${dist}/package.zip" basedir="${compile}" />
+	</target>
+	<!--打包成.ear夹包-->
+	<target name="earFile" depends="compile">
+		<ear destfile="${dist}/ant_ear.ear" basedir="${compile}" />
+	</target>
+
+	<!--打包成.war夹包-->
+	<target name="warFile" depends="compile">
+		<war destfile="${dist}/ant_war.war" basedir="${compile}"/>
+	</target>
+
+	<!--不打包/解压-->
+	<target name="umcompress" depends="compress">
+		<unzip dest="${dist}" src="${dist}/package.zip" />
+	</target>
+	<!--找文字替换 summary可以输 出提示替换了几个-->
+	<target name="replaceFile">
+		<replace file="input.txt" token="old" value="new" summary="on" />
+	</target>
+	<!--拷貝所有.java的文件-->
+	<target name="copy">
+		<copy todir="${dist}">
+			<fileset dir="src">
+				<include name="**/*.java" />
+			</fileset>
+		</copy>
+	</target>
+	<!--自定义一个类来處理Task-->
+	<taskdef name="MyTaskExample" classname="com.ant.tool.extend.AntTasks" classpath="bin" />
+	<!--引用自定标签的name  myTaskExample-->
+	<target name="MyAntTasks">
+		<myTaskExample srcFile="input.txt" destFile="output.txt" />
+	</target>
+	<!--用echo显示各种的属性-->
+	<target name="showProperty">
+		<echo message="当前系统的用户名:${user.name}" />
+		<echo message="当前系统的版本:${os.version}" />
+		<echo message="当前系统的安装路径:${user.home}" />
+		<echo message="ant的xml文件:${ant.file}" />
+		<echo message="当前系统的语言:${user.language}" />
+		<echo message="ant发现Java虚拟机的版本:${ant.java.version}" />
+		<echo message="项目的绝对路径:${basedir}"/>
+	 	<echo message="lib类库:${ant.library.dir}"/>
+		<echo message="Apache Ant version :${ant.version}"/>
+		<echo message="jre目录：${java.home}"/>
+		<echo message="安装系统：${os.name}"/>
+		<echo message="${user.country}"/> 
+	</target>
+</project>
